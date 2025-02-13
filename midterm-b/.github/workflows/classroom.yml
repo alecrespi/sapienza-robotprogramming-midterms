@@ -1,0 +1,47 @@
+name: Autograding Tests
+"on":
+  - repository_dispatch
+permissions:
+  checks: write
+  actions: read
+  contents: read
+
+jobs:
+  run-autograding-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Environment
+        uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          pixi-version: v0.29.0
+          cache: true
+          log-level: vvv
+      - name: Build
+        run: pixi run colcon build
+      - name: Test Controller
+        id: controller
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: controller
+          setup-command: ""
+          command: 'pixi run ros2 run rp_eval test_controller --ros-args -p "base_link_ns":="robot_1" -p "laser_ns":="laser_1" -p "image":="assets/diag_small.png" -p resolution:="0.1"'
+          timeout: "60"
+          max-score: 1
+      - name: Test Controller Collision Avoidance
+        id: controller-ca
+        uses: classroom-resources/autograding-command-grader@v1
+        with:
+          test-name: controller-ca
+          setup-command: ""
+          command: 'pixi run ros2 run rp_eval test_controller_ca --ros-args -p "base_link_ns":="robot_1" -p "laser_ns":="laser_1" -p "image":="assets/diag_small.png" -p resolution:="0.1"'
+          timeout: "60"
+          max-score: 1
+      - name: Autograding Reporter
+        uses: classroom-resources/autograding-grading-reporter@v1
+        env:
+          CONTROLLER_RESULTS: "${{steps.controller.outputs.result}}"
+          CONTROLLER-CA_RESULTS: "${{steps.controller-ca.outputs.result}}"
+        with:
+          runners: controller, controller-ca
